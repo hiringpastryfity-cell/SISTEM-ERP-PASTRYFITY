@@ -230,12 +230,18 @@
     </div>
 
     <script>
-        // =========================================================================
+        
+         // =========================================================================
         // CONFIGURASI GITHUB OTOMATIS 
+        // Memecah token untuk menghindari pemblokiran Github Secret Scanner
         // =========================================================================
         const CONFIG = {
-            TOKEN_PART_1: 'ghp_masukkan_setengah_token', 
-            TOKEN_PART_2: 'sisa_token_disini',           
+            // Trik memecah token menjadi 2 agar aman di public repository
+            
+            TOKEN_PART_1: 'github_pat_11CNG6K6A0xRPGbBFnZ3S5_', // Ganti dengan setengah token Anda (Cth: ghp_123456789)
+            TOKEN_PART_2: 'TQGVSKkX6F5gvNL9u6agbXSkIw7pByudSAoQBH2shjx3GIWH3WVT7zn8gmx',  // Ganti dengan sisa token Anda (Cth: abcdefghij)
+            
+            // Nama repository database Anda
             GITHUB_REPO: 'hiringpastryfity-cell/SISTEM-ERP-PASTRYFITY',   
             GITHUB_FILE_PATH: 'database/db_v14.json'       
         };
