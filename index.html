@@ -1450,22 +1450,63 @@
             });
         }
 
-        async function pullFromGithub() {
-            if(!CONFIG.TOKEN_PART_1 || CONFIG.TOKEN_PART_1.includes('masukkan_setengah')) return alert('Mohon isi CONFIG.TOKEN_PART_1 dan PART_2 di baris kode HTML terlebih dahulu!');
-            if(!confirm('Peringatan: Melakukan Pull akan MENGHAPUS seluruh data lokal dan menggantinya dengan data dari Github Repo. Lanjutkan?')) return;
-            document.getElementById('btn-pull').innerText = "Sedang Menarik Data... ⏳";
+       async function pushToGithub() {
+            if(!CONFIG.TOKEN_PART_1 || CONFIG.TOKEN_PART_1.includes('masukkan_setengah')) return alert('Mohon isi CONFIG.TOKEN_PART_1 dan PART_2!');
+            document.getElementById('btn-push').innerText = "Sedang Mengirim Data... ⏳";
             
-            let token = getGithubToken();
-            fetch(`https://api.github.com/repos/${CONFIG.GITHUB_REPO}/contents/${CONFIG.GITHUB_FILE_PATH}`, {
-                method: 'GET', headers: { 'Authorization': `token ${token}` }
-            }).then(res => res.json()).then(data => {
-                if(!data.content) return alert('❌ File Database tidak ditemukan di Repository tersebut.');
-                let decoded = decodeURIComponent(escape(atob(data.content)));
-                let parsedData = JSON.parse(decoded);
-                let stores = Object.keys(parsedData); let t = db.transaction(stores, 'readwrite');
-                stores.forEach(storeName => { t.objectStore(storeName).clear(); parsedData[storeName].forEach(item => t.objectStore(storeName).put(item)); });
-                t.oncomplete = () => { alert('✅ Data Berhasil Di-Pull (Restore) dari Cloud! Sistem akan dimuat ulang otomatis.'); location.reload(); };
-            }).catch(err => { alert('❌ Gagal Pull. Cek Koneksi Anda.'); }).finally(() => document.getElementById('btn-pull').innerText = "⬇️ PULL DATA DARI GITHUB REPO");
+            let dataObj = {}; let stores = ['users','roles','produk','trx','jurnal','crm','hrm','pengajuan','laporan','logs','stok_log','kpi','payment_acc','kurir','edit_req'];
+            let t = db.transaction(stores, 'readonly'); let completed = 0;
+            
+            stores.forEach(storeName => { 
+                let req = t.objectStore(storeName).getAll(); 
+                req.onsuccess = async e => { 
+                    dataObj[storeName] = e.target.result; completed++; 
+                    if(completed === stores.length) {
+                        try {
+                            let jsonString = JSON.stringify(dataObj);
+                            let base64Content = btoa(unescape(encodeURIComponent(jsonString)));
+                            let token = getGithubToken();
+                            let sha = '';
+                            
+                            // Langkah 1: Cek apakah file sudah ada
+                            let getRes = await fetch(`https://api.github.com/repos/${CONFIG.GITHUB_REPO}/contents/${CONFIG.GITHUB_FILE_PATH}`, { 
+                                headers: { 'Authorization': `Bearer ${token}` } 
+                            });
+                            
+                            if(getRes.ok) { 
+                                let getJson = await getRes.json(); 
+                                sha = getJson.sha; 
+                            } else if (getRes.status !== 404) {
+                                let errData = await getRes.json();
+                                alert(`❌ Error Cek File (Kode ${getRes.status}): ${errData.message}`);
+                                document.getElementById('btn-push').innerText = "☁️ PUSH DATA KE GITHUB REPO";
+                                return;
+                            }
+
+                            // Langkah 2: Push Data
+                            let bodyData = { message: "Auto-sync PastryFity DB", content: base64Content };
+                            if(sha) bodyData.sha = sha;
+
+                            let putRes = await fetch(`https://api.github.com/repos/${CONFIG.GITHUB_REPO}/contents/${CONFIG.GITHUB_FILE_PATH}`, {
+                                method: 'PUT', 
+                                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                                body: JSON.stringify(bodyData)
+                            });
+
+                            if(putRes.ok) {
+                                alert('✅ Seluruh Database Berhasil Di-Push ke Cloud Github Repo!');
+                            } else {
+                                let putErr = await putRes.json();
+                                alert(`❌ Gagal Push (Kode ${putRes.status}): ${putErr.message}`);
+                            }
+                        } catch(err) {
+                            alert(`❌ Error Sistem/Jaringan: ${err.message}`);
+                        } finally {
+                            document.getElementById('btn-push').innerText = "☁️ PUSH DATA KE GITHUB REPO";
+                        }
+                    }
+                }; 
+            });
         }
     </script>
 </body>
